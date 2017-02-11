@@ -1,0 +1,146 @@
+Revision history for Perl extension ApMon.
+
+2.2.22 Nov 2014
+    - Support em* interface names alongside legacy eth* names
+
+2.2.21 Oct 2013
+    - Fix parsing of /proc/net/dev that now has spaces after the interface name
+
+2.2.20 Oct 2009
+    - Support Solaris for host monitoring
+
+2.2.19 Thu Jun 19 17:45:12 CEST 2008
+    - Do not factor in CPU frequency fluctuations when reporting ksi2k values
+    - Recognize TMPDIR as the default path where to put the temporary files instead of hardcoding /tmp/
+
+2.2.18 Tue Feb 12 17:26:35 CET 2008
+    - Enconding numbers larger than 2^31 as REAL instead of INT to preserve the actual value
+
+2.2.17 Tue Nov 27 13:32:29 CET 2007
+    - Fixed security issue: /tmp files were world writeable. Now 0600.
+
+2.2.16 Tue Nov  6 15:43:20 CET 2007
+    - Sending again the swap_used/free/usage parameters (broken since 2.2.11)
+    - Avoid collecting BgMonitoring info immediately after initialization
+
+2.2.15 Thu Nov  1 15:08:22 CET 2007
+    - Finer-grained disk usage statistics (use df -k instead of df -m)
+    - Simpler overflow check
+
+2.2.14 Thu Oct  4 11:40:34 CEST 2007
+    - If known, report also the ksi2k factor for the system (as generic info)
+
+2.2.13 Mon Sep  3 10:23:40 CEST 2007
+    - Reporting the size and success of the sent datagram
+    - Fix for handling string params in sendToML.sh
+    - Requiring LWP::Useragent only when needed, so if config is not on http, this is not required
+
+2.2.12 Fri Aug 24 16:33:33 CEST 2007
+    - Support changing generic values
+    - Support variable CpuMhz when reporting consumed ksi2k
+    - Adding reporting for minor and major faults of the processes of a monitored job
+
+2.2.11 Mon Jul  2 18:05:43 CEST 2007
+    - Adding swap_(in|out)_R also for kernel >2.5
+    - Renaming pages_(in|out) to blocks_(in|out)_R and adding it also for kernel >2.5
+    - adding cpu_iowait, interrupts and context_switches
+    - adding sendToML.sh and servMon.sh scripts to the distribution
+
+2.2.10 Tue Jun  5 18:16:00 CEST 2007
+    - Fixed support for cpu type and parameters on ia64.
+    - adding /etc/issue as a place to get distribution name
+
+2.2.9 Tue Feb  6 10:44:48 CET 2007
+    - fixed /tmp not accesible problem: sending both user and monitoring information was not
+      working. Now, /tmp fails while running, old config is kept. In order to avoid all this,
+      create ApMon(0) to avoid using bg processes.
+
+2.2.8 Fri Sep  1 16:26:17 CEST 2006
+    - added 2 functions: getSysMonInfo & getJobMonInfo to get the last values of all monitored 
+      parameters from ApMon.
+
+2.2.7 Mon Jul 31 16:05:39 CEST 2006
+    - don't print an error if no config url is given (but there is a destination)
+    - another fix in parsing uptime
+
+2.2.6 Thu Jul  6 21:22:31 CEST 2006
+    - small fix in handling errors when loading config from multiple urls
+    - added a new example: muliple_urls.pl to show how to init from several urls
+
+2.2.5 Mon Jun 26 12:01:41 CEST 2006
+    - fix in parsing uptime
+    - cpu_time is always increasing, even if one of the forked processes finishes
+    - added run_ksi2k to report the elapsed time (not CPU time) in ksi2k units.
+
+2.2.4 Tue Jun 13 11:54:50 CEST 2006
+    - added mem_actualfree: actually free memory: free + buffers + cached
+
+2.2.3 Tue May 30 19:12:04 CEST 2006
+    - added cpu_cache - as in /proc/cpuinfo
+    - added possibility to report cpu_ksi2k as cpu consumed power, per second, in Kilo SpecINT2000 units.
+
+2.2.2 Wed May 24 22:43:52 CEST 2006
+    - changed the Instance ID to be more random
+    - added new parameters: kernel_version, platform, os_type, mem_buffers, mem_cached
+    
+2.2.1 Tue Mar 7 10:12:34 CET 2006
+    - changed ps -ax -e to ps -A to avoid the warning on debian and to keep the consistency on Mac.
+
+2.2.0 Sun Feb 19 21:52:52 CET 2006
+    - Changed protocol (requires ML Service >= 2.4.10) so that each UDP packet includes 2 new INT32 fields
+      to identify the sender and the sequence number. This will enable ML Service to detect lost packets,
+      if it is configured to do so.
+
+2.1.1 Mon Feb 13 23:07:39 CET 2006
+    - sendBgMonitoring accepts now a parameter to force sending the bgMonitoring
+      regardles of how much time passed since last sent
+    - LoadAvg (load1, load5, load15) works on Darwin (Mac OS X)
+    - Process monitoring works on Darwin (Mac OS X)
+    - fixed reporting cummulative values (ethX_yyy, swap in/out, pages in/out, cpu_zzz)
+    
+2.0.10 Wed Dec  7 17:04:26 CET 2005
+    - don't compute the used_swap and used_mem unless we have values for total and free mem and swap
+    - added sockets info (tcp, udp, unix) and connection states for tcp sockets from netstat
+    - sorted the list of sent parameters - it should be easier to find them in the GUI client
+    - decreased the default max rate of sent messages to 20 per second
+    
+2.0.9 Sat Nov  5 21:45:41 CET 2005
+    - don't try to encode parameters with undefined values
+
+2.0.8 Thu Oct 27 21:49:57 CEST 2005
+    - fixed div by zero if there is no swap space
+    - produce the number of running, sleeping, io blocked, zombie, stopped processes
+
+2.0.7 Mon Oct  3 22:25:58 CEST 2005
+    - replaced `hostname -f` with Net::Domain::getfqdn() for Mac compatibility
+    
+2.0.6 Fri Sep  2 16:33:59 CEST 2005
+    - added a limit of the maximum number of messages that are sent, per second
+    - added a function to free the resources when you have to recreate the object
+    - fixed a bug in computing the ethX_in/out network traffic when system counters were wrapping 
+
+2.0.5 Sat Aug  6 18:40:45 CEST 2005
+    - added number of opened file descriptors
+
+2.0.4 Fri Jul 29 11:45:34 CEST 2005
+    - added cpu_vendor_id, cpu_family, cpu_model, cpu_model_name, bogomips
+
+2.0.3 Sun Jun 26 18:21:22 CEST 2005
+    - added an example of how to send data from bash
+    - by default, if bg monitoring is requested, send all available params
+    - if you init ApMon object passing 0 as param, no fork will ever be done
+
+2.0.2 Tue Apr 19 12:51:44 CEST 2005
+    - removed job_ from job's parameters name
+
+2.0.1 Thu Apr 14 13:16:27 CEST 2005
+    - Clean up, change of major version
+    - Added uptime parameter
+    - Added setLogLevel and xApMon_loglevel to change the logging level
+    - Created several examples
+
+1.6.7 Thu Mar 31 22:49:08 CEST 2005
+    - Made it compliant to the standard format for Perl packages
+
+1.6.0 Beginning of March, 2005
+    - Added xApMon extension to send background monitoring information.

@@ -1,0 +1,186 @@
+NAME
+    ApMon - Perl extension for sending application information to MonALISA
+    services.
+
+SYNOPSIS
+      use ApMon;
+      # initialize from a URL or from a file
+      my $apm = new ApMon::ApMon("http://some.host.com/destinations.conf");
+      $apm->sendParameters("Cluster", "Node", "param1", 14.23e-10, "param2", 234);
+
+      # initalize with default xApMon configuration, and send datagrams directly
+      # to the given host.
+      my $apm = ApMon::ApMon->new(["pcardaab.cern.ch:8884", "localhost"]);
+      $apm->sendParameters("Cluster", "Node", {"x" => 12, "y" => 0.3});
+
+      # given xApMon configuration will overwrite the default values.
+      my $apm = ApMon::ApMon->new({
+            "pcardaab.cern.ch:8884" => 
+                {"sys_monitoring" => 0, "job_monitoring" => 1, "general_info" => 1}, 
+            "lcfg.rogrid.pub.ro passwd" => 
+                {"sys_monitoring" => 1, "general_info" => 0}
+            });
+      $apm->sendParameters("Cluster", "Node", ["name", "some_name", "value", 23]); 
+
+DESCRIPTION
+    ApMon is an API that can be used by any application to send monitoring
+    information to MonALISA services (http://monalisa.caltech.edu). The
+    monitoring data is sent as UDP datagrams to one or more hosts running
+    MonALISA. The MonALISA host may require a password enclosed in each
+    datagram, for authentication purposes. ApMon can also send datagrams
+    that contain monitoring information regarding the system or the
+    application.
+
+METHODS
+    $apm = new ApMon(@destLocations);
+        This is the constructor for the ApMon class. It can be used with
+        several types of arguments: a list of strings (URLs and/or files) -
+        the configuration will be read from all; a reference to an ARRAY -
+        each element is a destination ML service; for each destination the
+        default options will be used; a reference to a HASH - each key is a
+        destination ML service; for each destination you can define a set of
+        additional options that will overwrite the default ones. You can
+        also leave it empty and initialize ApMon later using the
+        $apm->setDestinations() method. This will create the two background
+        processes (for bg monitoring and configuration update). If you don't
+        want these two processes to be created ever, you can pass the value
+        0 as single argument.
+
+    $apm->setDestinations(@destLocations);
+        Accept the same parameters as the ApMon constructor
+
+    $apm->addJobToMonitor($pid, $workDir, $clusterName, $nodeName);
+        Add another job to be monitored. A job is a tree of processes,
+        starting from the given PID that has files in workDir directory. If
+        workDir in "", no disk measurements will be performed. All produced
+        parameters will be sent to all interested destinations using the
+        given cluster and node names.
+
+    $apm->removeJobToMonitor($pid);
+        Remove a tree of processes, starting with PID from being monitored.
+
+    $apm->setMonitorClusterNode($clusterName, $nodeName);
+        This is used to set the cluster and node name for the system-related
+        monitored data.
+
+    $apm->setConfRecheck($onOff [, $interval]);
+        Call this function in order to enable or disable the configuration
+        recheck. If you enable it, you may want to pass a second parameter,
+        that specifies the number of seconds between two configuration
+        rechecks. Note that it makes sense to use configuration recheck only
+        if you get the configuration from (a set of) files and/or URLs.
+
+    $apm->sendParams(@params);
+        Use this to send a set of parameters without specifying a cluster
+        and a node name. In this case, the default values for cluster and
+        node name will be used. See the sendParameters function for more
+        details.
+
+    $apm->sendParameters($clusterName, $nodeName, @params);
+        Use this to send a set of parameters to all given destinations. The
+        default cluster an node names will be updated with the values given
+        here. If afterwards you want to send more parameters, you can use
+        the shorter version of this function, sendParams. The parameters to
+        be sent can be eiter a list, or a reference to a list. This list
+        should have an even length and should contain pairs like (paramName,
+        paramValue). paramValue can be a string, an int or a float.
+
+    $apm->sendTimedParams($time, @params);
+        This is the short version of the sendTimedParameters that uses the
+        default cluster and node name to sent the parameters and allows you
+        to specify a time (in seconds from Epoch) for each packet.
+
+    $apm->sendTimedParameters($clusterName, $nodeName, $time, @params);
+        Use this instead of sendParameters to set the time for each packet
+        that is sent. The time is in seconds from Epoch. If you use the
+        other function, the time for these parameters will be sent by the
+        MonALISA serice that receives them.
+
+    $apm->sendBgMonitoring();
+        Send NOW the background monitoring information to the interested
+        destinations. Note that this uses the current process and not the
+        background one. So, if you stop the background processes you can
+        still use this call to send the background information (both about
+        system and jobs) whenever you want. If $mustSend is != 0, the
+        bgMonitoring data is sent regardles of when it was last time sent.
+        This allows sending a 'last result', just before the end of a job,
+        and which can happen anytime.
+
+    $apm->getSysMonInfo('param_name1', 'param_name2', ...);
+        IF and ONLY IF sendBgMonitoring() was called before, either called
+        by user or by the BgMonitoring process, the last system monitored
+        values for the requested parameters will be returned. Note that the
+        requested parameters must be among the monitored ones. If there is
+        no avaialbe parameter among the requested ones, it returns undef.
+
+    $apm->getJobMonInfo($pid, 'param_name1', 'param_name2', ...);
+        IF and ONLY IF sendBgMonitoring() was called before, either called
+        by user or by the BgMonitoring process, the last job monitored
+        values for the given PID will be returned. Note that the requested
+        parameters must be among the monitored ones. If there is no avaialbe
+        parameter among the requested ones, it returns undef.
+
+    $apm->enableBgMonitoring($onOff);
+        This allows enabling and disabling of the background monitoring.
+        Note that this doesn't stop the background monitor process; Note
+        also that this is called by default by setDestinations () to enable
+        the background monitoring once the destination is set. It doesn't
+        make sense to call this if you have stopped the background
+        processes.
+
+    $apm->refreshConfig();
+        Call this function to force refreshing the temporary config file and
+        make sure that at the next send, the new configuration will be used.
+        Note that it makes sense to use this only if you load the
+        configuration from (a set of) files and/or URLs. Also note that
+        fetching the configuration files from an URL might take some time,
+        depending on network conditions.
+
+    $apm->startBgProcesses();
+        This can be called in order to start the background processes (conf
+        loader and bg monitor). It is called by default if configuration is
+        read from a file or from a URL (not when you give a hash or an array
+        for destinations).
+
+    $apm->stopBgProcesses();
+        This can be called to stop all child processes
+
+    $apm->setLogLevel($level);
+        This sets the logging level for all ApMon components. $level can be
+        one of: "DEBUG", "NOTICE", "INFO", "WARNING", "ERROR", "FATAL". You
+        can also set the log level from the configuration file by specifying
+        xApMon_loglevel = one of the above (without quotes).
+
+    $apm->setMaxMsgRate($rate);
+        This sets the maxim number of messages that can be sent to a
+        MonALISA service, per second. By default, it is 50. This is a very
+        large number, and the idea is to prevent errors from the user. One
+        can easily put in a for loop, without any sleep, some sendParams
+        calls that can generate a lot of unnecessary network load.
+
+    $apm->getCpuType();
+        This returns a hash with the cpu type: cpu_model_name, cpu_MHz,
+        cpu_cache (in KB). This call is meant to be used together with
+        setCpuSI2k, to establish a SpecInt performance meter. If it cannot
+        get the cpu type, it returns undef
+
+    $apm->setCpuSI2k(si2k);
+        This sets the SpecINT2000 meter for the current machine.
+        Consequently, jobs will also report cpu_ksi2k, based on this value
+        and cpu_time.
+
+    $apm->free();
+        This function stops the background processes and removes the
+        temporary file. After this call, the ApMon object must be recreated
+        in order to be used. It is provided for exceptional cases when you
+        have to recreate over and over again the ApMon object; you have to
+        free it when you don't need anymore.
+
+AUTHOR
+      Catalin Cirstoiu
+
+COPYRIGHT AND LICENSE
+    This module is distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY
+    KIND, either expressed or implied. This library is free software; you
+    can redistribute or modify it under the same terms as Perl itself.
+
