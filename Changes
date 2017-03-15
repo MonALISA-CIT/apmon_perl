@@ -1,5 +1,18 @@
 Revision history for Perl extension ApMon.
 
+2.2.25
+    - More flexible method to get the network interface names
+
+2.2.24 Apr 2016
+    - Accept any physical network interface name
+    - Publish the total traffic per node (sum of all physical interfaces) as "total_traffic_{in,out}"
+    - Publish the global IPv6 addresses (one per physical interface)
+    - Compatibility with CentOS 7's ifconfig format (to extract IPv4 and IPv6 addresses)
+
+2.2.23 Sep 2015
+    - Add support for p4p* network interfaces
+
+
 2.2.22 Nov 2014
     - Support em* interface names alongside legacy eth* names
 
