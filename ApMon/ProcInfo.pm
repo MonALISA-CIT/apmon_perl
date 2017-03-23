@@ -16,6 +16,7 @@ sub new {
 	my $this = {};
 	$this->{DATA} = {};		# monitored data that is going to be reported
 	$this->{JOBS} = {};		# jobs that will be monitored 
+	$this->{NETWORKINTERFACES} = {};# network interface names
 	# names of the months for ps start time of a process
 	$this->{MONTHS} = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 	$this->{readGI} = 0;	# used to read generic information less often
@@ -82,7 +83,7 @@ sub readStat {
 		    (undef, $kbR, $kbW) = split(/\s+/, $line);
 		    
 		    $this->{DATA}->{"raw_blocks_in"} += $kbR;
-		    $this->{DATA}->{"raw_blocks_out"} += $kbW;		    
+		    $this->{DATA}->{"raw_blocks_out"} += $kbW;
 		}
 		
 		close IOSTAT;
@@ -372,23 +373,37 @@ sub readGenericInfo {
 	}
 	
 	if(open(IF_CFG, "/sbin/ifconfig -a |")){
-		my ($eth, $ip, $line);
+		my ($eth, $ip, $ipv6, $line);
 		while($line = <IF_CFG>){
-			if($line =~ /^(e\w+\d)\s+/){
-				$eth = $1;
+			if($line =~ /^(\w+):?\s+/ ){
 				undef $ip;
+				if (exists($this->{NETWORKINTERFACES}->{$1})){
+				    $eth = $1;
+				    undef $ip;
+				    undef $ipv6;
+				}
+				else{
+				    undef $eth;
+				}
 				next;
 			}
 			
 			if ($line =~ /^\w/){
 			    undef $eth;
+			    undef $ip;
+			    undef $ipv6;
 			    next;
 			}
 			
-			if(defined($eth) and ($line =~ /\s+inet addr:(\d+\.\d+\.\d+\.\d+)/)){
-				$ip = $1;
+			if(defined($eth) and ($line =~ /\s+inet( addr:)?\s*(\d+\.\d+\.\d+\.\d+)/) and ! defined($ip)){
+				$ip = $2;
 				$this->{DATA}->{$eth."_ip"} = $ip;
-				undef $eth;
+				undef $ipv6;
+			}
+
+			if(defined($eth) and ($line =~ /\s+inet6( addr:)?\s*([0-9a-fA-F:]+).*(Scope:Global|scopeid.*global)/) and ! defined($ipv6)){
+				$ipv6 = $2;
+				$this->{DATA}->{$eth."_ipv6"} = $ipv6;
 			}
 		}
 		close IF_CFG;
@@ -492,6 +507,8 @@ sub diffWithOverflowCheck {
 # TODO: find an alternative for MAC OS X
 sub readNetworkInfo {
 	my $this = shift;
+
+	$this->{NETWORKINTERFACES} = {};
 	
 	if ($Config{osname} eq "solaris"){
 	    my $ifname;
@@ -532,32 +549,61 @@ sub readNetworkInfo {
 		
 		close NET_DEV;
 		
-		$this->{DATA}->{"raw_".$ifname."_in"} = $bytesIn;
-		$this->{DATA}->{"raw_".$ifname."_out"} = $bytesOut;
-		$this->{DATA}->{"raw_".$ifname."_err"} = 0;
+		$this->{DATA}->{"raw_net_".$ifname."_in"} = $bytesIn;
+		$this->{DATA}->{"raw_net_".$ifname."_out"} = $bytesOut;
+		$this->{DATA}->{"raw_net_".$ifname."_err"} = 0;
 		
 		#fake eth0 traffic, even if on Solaris the interfaces have weird names
 		#and moreover we cannot tell the traffic per each interface...
-		$this->{DATA}->{"raw_eth0_in"} = $bytesIn;
-		$this->{DATA}->{"raw_eth0_out"} = $bytesOut;
-		$this->{DATA}->{"raw_eth0_err"} = 0;
+		$this->{DATA}->{"raw_net_eth0_in"} = $bytesIn;
+		$this->{DATA}->{"raw_net_eth0_out"} = $bytesOut;
+		$this->{DATA}->{"raw_net_eth0_err"} = 0;
+
+		$this->{DATA}->{"raw_net_total_traffic_in"} = $bytesIn;
+		$this->{DATA}->{"raw_net_total_traffic_out"} = $bytesOut;
+
+		$this->{NETWORKINTERFACES}->{"eth0"} = "eth0";
+		$this->{NETWORKINTERFACES}->{"total_traffic"} = "total_traffic";
 	    }
 	    
 	    return;
 	}
-	
+
+	if (opendir my $dh, "/sys/class/net"){
+	    my @things = grep {$_ ne '.' and $_ ne '..' } readdir $dh;
+	    foreach my $thing (@things) {
+		my $link = readlink("/sys/class/net/".$thing);
+		if (defined($link) && index($link, "/virtual/")<0){
+		    $this->{NETWORKINTERFACES}->{$thing} = $thing;
+		}
+	    }
+	}
+
+	my $total_traffic_in=0;
+	my $total_traffic_out=0;
+
 	if(open(NET_DEV, "</proc/net/dev")){
 		while (my $line = <NET_DEV>) {
-			if($line =~ /\s*(e\w+\d):\s*(\d+)\s+\d+\s+(\d+)\s+\d+\s+\d+\s+\d+\s+\d+\s+\d+\s+(\d+)\s+\d+\s+(\d+)/){
-				$this->{DATA}->{"raw_$1"."_in"} = $2;
-				$this->{DATA}->{"raw_$1"."_out"} = $4;
-				$this->{DATA}->{"raw_$1"."_errs"} = $3 + $5; # in and out errors
+			if($line =~ /\s*(\w+):\s*(\d+)\s+\d+\s+(\d+)\s+\d+\s+\d+\s+\d+\s+\d+\s+\d+\s+(\d+)\s+\d+\s+(\d+)/){
+				if ( exists($this->{NETWORKINTERFACES}->{$1}) ){
+				    $this->{DATA}->{"raw_net_$1"."_in"} = $2;
+				    $this->{DATA}->{"raw_net_$1"."_out"} = $4;
+				    $this->{DATA}->{"raw_net_$1"."_errs"} = $3 + $5; # in and out errors
+
+				    $total_traffic_in += $2;
+				    $total_traffic_out += $4;
+				}
 			}
 		}
 		close NET_DEV;
 	}else{
 		logger("NOTICE", "ProcInfo: cannot open /proc/net/dev");
 	}
+
+	$this->{DATA}->{"raw_net_total_traffic_in" } = $total_traffic_in;
+	$this->{DATA}->{"raw_net_total_traffic_out"} = $total_traffic_out;
+
+	$this->{NETWORKINTERFACES}->{"total_traffic"} = "total_traffic";
 }
 
 # run nestat 
@@ -928,22 +974,23 @@ sub computeCummulativeParams {
 		}
 	}
 
-	# interrupts, context switches, swap & blocks - related params
-	my $interval = $dataRef->{TIME} - $prevDataRef->{TIME};
-	for my $param ('blocks_in', 'blocks_out', 'swap_in', 'swap_out', 'interrupts', 'context_switches') {
+	if (defined($prevDataRef->{TIME})){
+	    # interrupts, context switches, swap & blocks - related params
+	    my $interval = $dataRef->{TIME} - $prevDataRef->{TIME};
+	    for my $param ('blocks_in', 'blocks_out', 'swap_in', 'swap_out', 'interrupts', 'context_switches') {
 		if(defined($dataRef->{"raw_$param"}) && defined($prevDataRef->{"raw_$param"}) && ($interval != 0)){
 			my $diff = $this->diffWithOverflowCheck($dataRef->{"raw_$param"}, $prevDataRef->{"raw_$param"});
 			$dataRef->{$param."_R"} = $diff / $interval;
 		}else{
 			delete $dataRef->{$param."_R"};
 		}
-	}
+	    }
 
-	# eth - related params
-	for my $rawParam (keys %$dataRef){
-		next if $rawParam !~ /^raw_eth/ && $rawParam !~ /^raw_em/;
+	    # physical network interfaces - related params
+	    for my $rawParam (keys %$dataRef){
+		next if $rawParam !~ /^raw_net_/;
 		next if ! defined($prevDataRef->{$rawParam});
-		my $param = $1 if($rawParam =~ /raw_(.*)/);
+		my $param = $1 if($rawParam =~ /raw_net_(.*)/);
 
 		if($interval != 0){
 			$dataRef->{$param} = $this->diffWithOverflowCheck($dataRef->{$rawParam}, $prevDataRef->{$rawParam}); # absolute difference
@@ -951,6 +998,7 @@ sub computeCummulativeParams {
 		}else{
 			delete $dataRef->{$param};
 		}
+	    }
 	}
 
 	# copy contents of the current data values to the 
@@ -967,7 +1015,7 @@ sub computeCummulativeParams {
 # The cummulative parameters are computed based on $prevDataRef
 # As a side effect, prevDataRef is updated to have the values in dataRef.
 sub getFilteredData {
-	my ($this, $dataRef, $paramsRef, $prevDataRef) = @_;
+	my ($this, $dataRef, $paramsRef, $prevDataRef, $networkInterfaces) = @_;
 
 	# we don't do this for jobs
 	$this->computeCummulativeParams($dataRef, $prevDataRef)	if($prevDataRef);
@@ -985,8 +1033,10 @@ sub getFilteredData {
 		}elsif($param =~ /^net_(.*)$/ or $param =~ /^(ip)$/){
 			my $net_param = $1;
 			for my $key (keys %$dataRef) {
-				if ($key =~ /^e\w+\d_$net_param/){
-					$result{$key} = $dataRef->{$key};
+				if ($key =~ /^(\w+)_$net_param/ ){
+					if ( exists ($networkInterfaces->{$1}) ){
+					    $result{$key} = $dataRef->{$key};
+					}
 				}
 			}
 		}elsif($param eq "processes"){
@@ -1053,7 +1103,7 @@ sub removeJobToMonitor {
 sub getSystemData {
 	my ($this, $paramsRef, $prevDataRef) = @_;
 
-	my @ret = $this->getFilteredData($this->{DATA}, $paramsRef, $prevDataRef);
+	my @ret = $this->getFilteredData($this->{DATA}, $paramsRef, $prevDataRef, $this->{NETWORKINTERFACES});
 	
 	#print Dumper(@ret);
 	
@@ -1064,7 +1114,7 @@ sub getSystemData {
 sub getJobData {
 	my ($this, $pid, $paramsRef) = @_;
 	
-	return $this->getFilteredData($this->{JOBS}->{$pid}->{DATA}, $paramsRef);
+	return $this->getFilteredData($this->{JOBS}->{$pid}->{DATA}, $paramsRef, $this->{NETWORKINTERFACES});
 }
 
 1;

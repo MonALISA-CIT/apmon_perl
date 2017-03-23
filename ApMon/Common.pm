@@ -97,7 +97,8 @@ $CpuMHz = undef;	# Cpu Speed when taking the speed for KSI2k
         'general_data_sent' => 0,       # time from Epoch when general information was sent; don't touch!
 
         'hostname' => 1,
-        'ip' => 1,                      # will produce ethX_ip params for each interface
+        'ip' => 1,                      # will produce <ifname>_ip params for each physical interface
+	'ipv6' => 1,                    # will produce <ifname>_ipv6 params for each physical interface
 	'kernel_version' => 1,
 	'platform' => 1,
 	'os_type' => 1,
