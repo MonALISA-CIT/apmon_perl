@@ -10,7 +10,7 @@ use ApMon::XDRUtils;
 use Data::Dumper;
 use Sys::Hostname;
 
-use vars qw(@ISA @EXPORT @EXPORT_OK $APMON_DEFAULT_PORT $VERSION %defaultOptions $KSI2K $CpuMHz);
+use vars qw(@ISA @EXPORT @EXPORT_OK $APMON_DEFAULT_PORT $VERSION %defaultOptions $KSI2K $DB12 $CpuMHz);
 
 push @ISA, qw(Exporter);
 push @EXPORT, qw(logger);
@@ -26,6 +26,8 @@ my $MAX_MSG_RATE = 20;	# Default value for max nr. of messages that user is allo
 
 $KSI2K = undef;		# kilo spec ints 2k for this machine
 
+$DB12 = undef;		# DB12 (aka LHCbMarks) ~~ fast HS06 estimate
+
 $CpuMHz = undef;	# Cpu Speed when taking the speed for KSI2k
 
 # Default options for background monitoring
@@ -38,6 +40,8 @@ $CpuMHz = undef;	# Cpu Speed when taking the speed for KSI2k
 	'job_cpu_ksi2k' => 1,		# used CPU power in ksi2k units (see SpecInt2000 for details);
         'job_run_time' => 1,            # elapsed time from the start of this job in seconds
 	'job_run_ksi2k' => 1,		# elapsed time in ksi2k units
+        'job_cpu_db12' => 1,		# CPU time multipled by DB12 (LHCbMarks), if defined
+        'job_run_db12' => 1,		# Wall time multipled by DB12 (LHCbMarks), if defined
         'job_cpu_usage' => 1,           # current percent of the processor used for this job, as reported by ps
         'job_virtualmem' => 1,          # size in JB of the virtual memory occupied by the job, as reported by ps
         'job_rss' => 1,                 # size in KB of the resident image size of the job, as reported by ps
@@ -105,6 +109,7 @@ $CpuMHz = undef;	# Cpu Speed when taking the speed for KSI2k
         'cpu_MHz' => 1,
         'no_CPUs' => 1,                 # number of CPUs
 	'ksi2k_factor' => 1,		# system's ksi2k factor, if known
+        'db12' => 1,			# LHCbMarks value, if known
         'total_mem' => 1,
         'total_swap' => 1,
 	'cpu_vendor_id' => 1,
@@ -426,5 +431,11 @@ sub setCpuSI2k {
 	$KSI2K = $si2k / 1000.0 if($si2k);
 }
 
-1;
+# Set the DB12 (LHCbMarks) factor. If the value is set then cpu_db12 and run_db12
+# parameters will be automatically computed as cpu_time respectively run_time
+# multipled by the DB12 value (the output of the fast Dirac benchmark)
+sub setDB12 {
+    $DB12 = shift;
+}
 
+1;
