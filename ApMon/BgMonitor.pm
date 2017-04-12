@@ -104,6 +104,12 @@ sub setCpuSI2k {
 	ApMon::Common::setCpuSI2k($si2k);
 }
 
+sub setDB12 {
+	my ($this, $marks) = @_;
+
+	ApMon::Common::setDB12($marks);
+}
+
 # Sets the cpu speed as the one detected when probing cpu type for si2k
 sub setCpuMHz {
 	my ($this, $mhz) = @_;
@@ -123,6 +129,7 @@ sub parseParentMessage {
 		$this->setMaxMsgRate($1) if $msg =~ /maxMsgRate:(.*)/;
 		$this->enableBgMonitoring($1) if $msg =~ /bg_enable:(.*)/;
 		$this->setCpuSI2k($1) if $msg =~ /cpu_si2k:(.*)/;
+		$this->setDB12($1) if $msg =~ /cpu_db12:(.*)/;
 		$this->setCpuMHz($1) if $msg =~ /cpu_mhz:(.*)/;
 		$pid = $1 if $msg =~ /pid:(.*)/;
 		$this->removeJobToMonitor($1) if $msg =~ /rm_pid:(.*)/;

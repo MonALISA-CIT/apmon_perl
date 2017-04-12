@@ -493,6 +493,19 @@ sub setCpuSI2k {
 	ApMon::Common::writeMessage($this->{BG_WTR}, "cpu_si2k:$si2k\n") if @children;
 }
 
+=item $apm->setDB12(marks);
+
+This sets the DB12 (aka LHCbMarks) value for the current machine. Jobs will report cpu_db12 and
+run_db12 based on this value and cpu_time and respectively run_time
+
+=cut
+
+sub setDB12 {
+	my ($this, $marks) = @_;
+	ApMon::Common::setDB12($marks);
+	ApMon::Common::writeMessage($this->{BG_WTR}, "cpu_db12:$marks\n") if @children;
+}
+
 =item $apm->free();
 
 This function stops the background processes and removes the temporary file. After this 

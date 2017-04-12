@@ -333,6 +333,7 @@ sub readCPUInfo {
 	}
 	# also put the ksi2k factor, if known
 	$this->{DATA}->{"ksi2k_factor"} = $ApMon::Common::KSI2K if $ApMon::Common::KSI2K;
+	$this->{DATA}->{"db12"} = $ApMon::Common::DB12 if $ApMon::Common::DB12;
 }
 
 # reads the IP, hostname, cpu_MHz, kernel_version, os_version, platform
@@ -852,8 +853,10 @@ sub readJobInfo {
 		my $freqFact = 1;		
 		$this->{JOBS}->{$pid}->{DATA}->{'run_time'} += $etime_delta;
 		$this->{JOBS}->{$pid}->{DATA}->{'run_ksi2k'} += $etime_delta * $freqFact * $ApMon::Common::KSI2K if $ApMon::Common::KSI2K;
+		$this->{JOBS}->{$pid}->{DATA}->{'run_db12'} += $etime_delta * $ApMon::Common::DB12 if $ApMon::Common::DB12;
 		$this->{JOBS}->{$pid}->{DATA}->{'cpu_time'} += $cputime_delta;
 		$this->{JOBS}->{$pid}->{DATA}->{'cpu_ksi2k'} += $cputime_delta * $freqFact * $ApMon::Common::KSI2K if $ApMon::Common::KSI2K;
+		$this->{JOBS}->{$pid}->{DATA}->{'cpu_db12'} += $cputime_delta * $ApMon::Common::DB12 if $ApMon::Common::DB12;
 		$this->{JOBS}->{$pid}->{DATA}->{'cpu_time_offset'} = $cputime_offset;
 		$this->{JOBS}->{$pid}->{DATA}->{'cpu_usage'} = $pcpu;
 		$this->{JOBS}->{$pid}->{DATA}->{'mem_usage'} = $pmem;
